@@ -1,5 +1,7 @@
 'use client';
 
+import { materialRegistry } from '@/materials/registry';
+
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, Html, useVideoTexture } from '@react-three/drei';
@@ -123,7 +125,8 @@ export default function Painting({ project, position }: PaintingProps) {
   };
 
   const isVideo = project.frontmatter.videoUrl?.endsWith('.mp4') || project.frontmatter.videoUrl?.endsWith('.webm');
-  const isShader = project.frontmatter.shaderType === 'glsl' && project.frontmatter.shaderSrc;
+  const materialKey = typeof project.frontmatter.material === 'string' ? project.frontmatter.material : undefined;
+  const MaterialComponent = materialKey ? materialRegistry[materialKey] : undefined;
 
   return (
     <group position={position}>
@@ -167,8 +170,8 @@ export default function Painting({ project, position }: PaintingProps) {
         <planeGeometry args={[2, 1.5]} />
         {isVideo ? (
           <VideoMaterial url={project.frontmatter.videoUrl!} emissiveIntensity={emissiveIntensity} />
-        ) : isShader ? (
-          <ShaderMaterial src={project.frontmatter.shaderSrc!} emissiveIntensity={emissiveIntensity} />
+        ) : MaterialComponent ? (
+          <MaterialComponent emissiveIntensity={emissiveIntensity} />
         ) : (
           <ImageMaterial url={project.frontmatter.thumbnail} emissiveIntensity={emissiveIntensity} />
         )}

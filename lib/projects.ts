@@ -17,6 +17,7 @@ export interface ProjectFrontmatter {
   shaderSrc?: string;
   position?: [number, number, number];
   rotation?: [number, number, number];
+  material?: string;
 }
 
 export interface Project {
