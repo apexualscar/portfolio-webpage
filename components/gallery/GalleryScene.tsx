@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { Environment, Loader } from '@react-three/drei';
 import { Settings, MousePointer2, Keyboard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -17,21 +17,27 @@ interface GallerySceneProps {
 
 export const spawnPosition: [number, number, number] = [0, 1.6, 0];
 export const spawnRotation: [number, number, number] = [0, 0, 0];
-  
+
 export default function GalleryScene({ projects }: GallerySceneProps) {
   const router = useRouter();
   const [mode, setMode] = useState<'wasd' | 'click'>('wasd');
   const [quality, setQuality] = useState<'high' | 'low'>('low');
-  const [flowStep, setFlowStep] = useState<'welcome' | 'controls' | 'done'>('welcome');
+  const [flowStep, setFlowStep] = useState<'welcome' | 'controls' | 'done'>(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('gallery-welcomed')) {
+      return 'done';
+    }
+    return 'welcome';
+  });
   const [showSettings, setShowSettings] = useState(false);
   const [interactableProject, setInteractableProject] = useState<Project | null>(null);
   const [isZooming, setIsZooming] = useState(false);
+  const cameraRef = useRef<any>(null);
 
   useEffect(() => {
+    sessionStorage.removeItem('gallery-zooming');
     const savedMode = localStorage.getItem('portfolio-control-mode');
     if (savedMode === 'wasd' || savedMode === 'click') {
       setMode(savedMode);
-      // We don't set flowStep to 'done' here anymore so the welcome screen always shows
     }
     const savedQuality = localStorage.getItem('portfolio-quality');
     if (savedQuality === 'high' || savedQuality === 'low') {
@@ -39,11 +45,37 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
     }
   }, []);
 
+  useEffect(() => {
+    if (flowStep !== 'done') return;
+    let attempts = 0;
+    function tryRestoreCamera() {
+      if (!cameraRef.current) {
+        if (attempts < 10) {
+          attempts++;
+          setTimeout(tryRestoreCamera, 100);
+        }
+        return;
+      }
+      const saved = localStorage.getItem('gallery-camera');
+      if (saved) {
+        try {
+          const { position, rotation } = JSON.parse(saved);
+          if (position && rotation) {
+            cameraRef.current.position.set(...position);
+            cameraRef.current.rotation.set(...rotation);
+          }
+        } catch {}
+      }
+    }
+    tryRestoreCamera();
+  }, [flowStep]);
+
   const handleSelectMode = (newMode: 'wasd' | 'click') => {
     setMode(newMode);
     setFlowStep('done');
     setShowSettings(false);
     localStorage.setItem('portfolio-control-mode', newMode);
+    sessionStorage.setItem('gallery-welcomed', '1');
   };
 
   const handleSelectQuality = (newQuality: 'high' | 'low') => {
@@ -54,10 +86,15 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
   return (
     <>
       <div className={`w-full h-full transition-all duration-1000 ${flowStep !== 'done' ? 'blur-md scale-105' : 'blur-0 scale-100'}`}>
-        <Canvas shadows camera={{ position: spawnPosition, rotation: spawnRotation, fov: 60 }} onClick={() => setShowSettings(false)}>
+        <Canvas
+          shadows
+          camera={{ position: spawnPosition, rotation: spawnRotation, fov: 60 }}
+          onCreated={({ camera }) => { cameraRef.current = camera; }}
+          onClick={() => setShowSettings(false)}
+        >
           <color attach="background" args={['#111']} />
           <fog attach="fog" args={['#111', 5, 30]} />
-          
+
           <ambientLight intensity={0.5} />
           <directionalLight
             castShadow
@@ -74,10 +111,11 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
               setInteractableProject={setInteractableProject} 
               isZooming={isZooming} 
               setIsZooming={setIsZooming} 
+              cameraRef={cameraRef}
             />
           </Suspense>
 
-          <PlayerController mode={mode} hasSelectedMode={flowStep === 'done' && !isZooming} showSettings={showSettings} />
+          <PlayerController mode={mode} hasSelectedMode={flowStep === 'done' && !isZooming} showSettings={showSettings} cameraRef={cameraRef} />
         </Canvas>
       </div>
       <Loader />
@@ -222,3 +260,4 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
     </>
   );
 }
+// End of file

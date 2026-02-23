@@ -10,10 +10,24 @@ interface PlayerControllerProps {
   mode: 'wasd' | 'click';
   hasSelectedMode: boolean;
   showSettings: boolean;
+  cameraRef?: React.MutableRefObject<any>;
 }
 
-export default function PlayerController({ mode, hasSelectedMode, showSettings }: PlayerControllerProps) {
+export default function PlayerController({ mode, hasSelectedMode, showSettings, cameraRef }: PlayerControllerProps) {
   const { camera, gl, scene } = useThree();
+  
+  // Save camera position/rotation on unmount (leaving gallery)
+  useEffect(() => {
+    return () => {
+      if (camera && sessionStorage.getItem('gallery-zooming') !== 'true') {
+        localStorage.setItem('gallery-camera', JSON.stringify({
+          position: camera.position.toArray(),
+          rotation: camera.rotation.toArray(),
+        }));
+      }
+    };
+  }, [camera]);
+
   const [targetPosition, setTargetPosition] = useState<THREE.Vector3 | null>(null);
   const controlsRef = useRef<any>(null);
   const raycaster = useRef(new THREE.Raycaster());
@@ -73,25 +87,6 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings }
       }
     }
   }, [showSettings, hasSelectedMode, editMode, mode]);
-
-  // Auto-lock when returning to the gallery if WASD mode is already selected
-  useEffect(() => {
-    if (mode === 'wasd' && hasSelectedMode && !showSettings && !editMode) {
-      // We need a small delay to ensure the canvas is fully mounted and ready to receive the lock
-      // However, browsers still require a user gesture. But if the user just clicked a "Back to Gallery" link,
-      // that click event might still be valid for requesting a pointer lock if we do it quickly enough.
-      const timer = setTimeout(() => {
-        if (controlsRef.current && !controlsRef.current.isLocked) {
-          try {
-            controlsRef.current.lock();
-          } catch (e) {
-            // Ignore errors if the browser blocks the lock request
-          }
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [hasSelectedMode, mode, showSettings, editMode]);
 
   useFrame((state, delta) => {
     if (!hasSelectedMode || showSettings || editMode) return;

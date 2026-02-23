@@ -13,6 +13,7 @@ interface InteractionManagerProps {
   setInteractableProject: (project: Project | null) => void;
   isZooming: boolean;
   setIsZooming: (zooming: boolean) => void;
+  cameraRef?: React.MutableRefObject<any>;
 }
 
 export default function InteractionManager({ projects, setInteractableProject, isZooming, setIsZooming }: InteractionManagerProps) {
@@ -98,6 +99,13 @@ export default function InteractionManager({ projects, setInteractableProject, i
   const triggerZoom = (project: Project) => {
     setIsZooming(true);
     setInteractableProject(null);
+
+    // Save the camera position before zooming so we can return to it
+    localStorage.setItem('gallery-camera', JSON.stringify({
+      position: camera.position.toArray(),
+      rotation: camera.rotation.toArray()
+    }));
+    sessionStorage.setItem('gallery-zooming', 'true');
 
     // Find the painting object in the scene to get its exact world position and rotation
     let paintingObj: THREE.Object3D | null = null;
