@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Text, Html } from '@react-three/drei';
+import { Text, Html, useVideoTexture } from '@react-three/drei';
 import { useSpring, animated } from '@react-spring/three';
 import { useRouter } from 'next/navigation';
 import * as THREE from 'three';
@@ -14,6 +14,85 @@ interface PaintingProps {
   position: [number, number, number];
 }
 
+function VideoMaterial({ url, emissiveIntensity }: { url: string, emissiveIntensity: any }) {
+  const texture = useVideoTexture(url);
+  return (
+    <>
+      {/* @ts-ignore */}
+      <animated.meshStandardMaterial
+        map={texture}
+        emissive="#fff"
+        emissiveIntensity={emissiveIntensity}
+      />
+    </>
+  );
+}
+
+function ImageMaterial({ url, emissiveIntensity }: { url: string, emissiveIntensity: any }) {
+  const texture = useMemo(() => {
+    const loader = new THREE.TextureLoader();
+    return loader.load(url);
+  }, [url]);
+
+  return (
+    <>
+      {/* @ts-ignore */}
+      <animated.meshStandardMaterial
+        map={texture}
+        emissive="#fff"
+        emissiveIntensity={emissiveIntensity}
+        transparent={true}
+      />
+    </>
+  );
+}
+
+function ShaderMaterial({ src, emissiveIntensity }: { src: string, emissiveIntensity: any }) {
+  const [shaderCode, setShaderCode] = useState<string | null>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
+
+  useEffect(() => {
+    fetch(src)
+      .then(res => res.text())
+      .then(text => setShaderCode(text))
+      .catch(err => console.error("Failed to load shader", err));
+  }, [src]);
+
+  useFrame((state) => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+    }
+  });
+
+  const uniforms = useMemo(() => ({
+    uTime: { value: 0 },
+    uResolution: { value: new THREE.Vector2(2, 1.5) }
+  }), []);
+
+  if (!shaderCode) {
+    // @ts-ignore
+    return <animated.meshStandardMaterial color="#333" emissiveIntensity={emissiveIntensity} />;
+  }
+
+  const vertexShader = `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `;
+
+  // @ts-ignore
+  return (
+    <animated.shaderMaterial
+      ref={materialRef}
+      uniforms={uniforms}
+      vertexShader={vertexShader}
+      fragmentShader={shaderCode}
+    />
+  );
+}
+
 export default function Painting({ project, position }: PaintingProps) {
   const router = useRouter();
   const [hovered, setHovered] = useState(false);
@@ -21,12 +100,6 @@ export default function Painting({ project, position }: PaintingProps) {
   const meshRef = useRef<THREE.Mesh>(null);
 
   const { editMode } = useControls({ editMode: false });
-
-  // Load texture manually to handle SVGs better
-  const texture = useMemo(() => {
-    const loader = new THREE.TextureLoader();
-    return loader.load(project.frontmatter.thumbnail);
-  }, [project.frontmatter.thumbnail]);
 
   // Animation for hover
   const { scale, emissiveIntensity } = useSpring({
@@ -38,12 +111,19 @@ export default function Painting({ project, position }: PaintingProps) {
   const handleClick = (e: any) => {
     if (editMode) return;
     e.stopPropagation();
+    
+    // Only allow clicking if within 2.0 units (the "View" distance)
+    if (e.distance > 2.0) return;
+
     setClicked(true);
-    // In a real app, we might animate the camera here before navigating
-    setTimeout(() => {
-      router.push(`/projects/${project.frontmatter.slug}`);
-    }, 500);
+    
+    // Dispatch custom event for InteractionManager to handle the zoom
+    const event = new CustomEvent('trigger-zoom', { detail: { slug: project.frontmatter.slug } });
+    document.dispatchEvent(event);
   };
+
+  const isVideo = project.frontmatter.videoUrl?.endsWith('.mp4') || project.frontmatter.videoUrl?.endsWith('.webm');
+  const isShader = project.frontmatter.shaderType === 'glsl' && project.frontmatter.shaderSrc;
 
   return (
     <group position={position}>
@@ -56,28 +136,42 @@ export default function Painting({ project, position }: PaintingProps) {
       {/* Canvas */}
       <animated.mesh
         ref={meshRef}
+        position={[0, 0, 0.01]} // Fix z-fighting by moving slightly in front of the frame
         scale={scale}
-        onPointerOver={(e) => {
+        userData={{ isPainting: true, projectSlug: project.frontmatter.slug }}
+        onPointerMove={(e) => {
           if (editMode) return;
           e.stopPropagation();
-          setHovered(true);
-          document.body.style.cursor = 'pointer';
+          if (e.distance <= 2.0) {
+            if (!hovered) {
+              setHovered(true);
+              document.body.style.cursor = 'pointer';
+            }
+          } else {
+            if (hovered) {
+              setHovered(false);
+              document.body.style.cursor = 'auto';
+            }
+          }
         }}
         onPointerOut={(e) => {
           if (editMode) return;
           e.stopPropagation();
-          setHovered(false);
-          document.body.style.cursor = 'auto';
+          if (hovered) {
+            setHovered(false);
+            document.body.style.cursor = 'auto';
+          }
         }}
         onClick={handleClick}
       >
         <planeGeometry args={[2, 1.5]} />
-        {/* @ts-ignore */}
-        <animated.meshStandardMaterial
-          map={texture}
-          emissive="#fff"
-          emissiveIntensity={emissiveIntensity}
-        />
+        {isVideo ? (
+          <VideoMaterial url={project.frontmatter.videoUrl!} emissiveIntensity={emissiveIntensity} />
+        ) : isShader ? (
+          <ShaderMaterial src={project.frontmatter.shaderSrc!} emissiveIntensity={emissiveIntensity} />
+        ) : (
+          <ImageMaterial url={project.frontmatter.thumbnail} emissiveIntensity={emissiveIntensity} />
+        )}
       </animated.mesh>
 
       {/* Label */}
