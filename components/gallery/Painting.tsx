@@ -7,6 +7,7 @@ import { useSpring, animated } from '@react-spring/three';
 import { useRouter } from 'next/navigation';
 import * as THREE from 'three';
 import { Project } from '@/lib/projects';
+import { useControls } from 'leva';
 
 interface PaintingProps {
   project: Project;
@@ -18,6 +19,8 @@ export default function Painting({ project, position }: PaintingProps) {
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
   const meshRef = useRef<THREE.Mesh>(null);
+
+  const { editMode } = useControls({ editMode: false });
 
   // Load texture manually to handle SVGs better
   const texture = useMemo(() => {
@@ -33,6 +36,7 @@ export default function Painting({ project, position }: PaintingProps) {
   });
 
   const handleClick = (e: any) => {
+    if (editMode) return;
     e.stopPropagation();
     setClicked(true);
     // In a real app, we might animate the camera here before navigating
@@ -54,11 +58,13 @@ export default function Painting({ project, position }: PaintingProps) {
         ref={meshRef}
         scale={scale}
         onPointerOver={(e) => {
+          if (editMode) return;
           e.stopPropagation();
           setHovered(true);
           document.body.style.cursor = 'pointer';
         }}
         onPointerOut={(e) => {
+          if (editMode) return;
           e.stopPropagation();
           setHovered(false);
           document.body.style.cursor = 'auto';

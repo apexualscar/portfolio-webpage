@@ -15,6 +15,8 @@ export interface ProjectFrontmatter {
   videoUrl?: string;
   shaderType: 'unity' | 'glsl' | 'shadertoy' | 'none';
   shaderSrc?: string;
+  position?: [number, number, number];
+  rotation?: [number, number, number];
 }
 
 export interface Project {

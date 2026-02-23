@@ -12,6 +12,9 @@ interface GallerySceneProps {
   projects: Project[];
 }
 
+export const spawnPosition: [number, number, number] = [0, 1.6, 0];
+export const spawnRotation: [number, number, number] = [0, 0, 0];
+  
 export default function GalleryScene({ projects }: GallerySceneProps) {
   const [mode, setMode] = useState<'wasd' | 'click'>('wasd');
   const [quality, setQuality] = useState<'high' | 'low'>('low');
@@ -44,7 +47,7 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
 
   return (
     <>
-      <Canvas shadows camera={{ position: [0, 1.6, 5], fov: 60 }} onClick={() => setShowSettings(false)}>
+      <Canvas shadows camera={{ position: spawnPosition, rotation: spawnRotation, fov: 60 }} onClick={() => setShowSettings(false)}>
         <color attach="background" args={['#111']} />
         <fog attach="fog" args={['#111', 5, 30]} />
         

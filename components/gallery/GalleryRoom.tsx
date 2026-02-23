@@ -2,7 +2,10 @@
 
 import { Project } from '@/lib/projects';
 import Painting from '@/components/gallery/Painting';
-import { useGLTF } from '@react-three/drei';
+import { useGLTF, OrbitControls } from '@react-three/drei';
+import { useControls } from 'leva';
+import EditableTransform from '@/components/gallery/EditableTransform';
+import {spawnPosition, spawnRotation} from './GalleryScene';
 
 interface GalleryRoomProps {
   projects: Project[];
@@ -17,22 +20,52 @@ export default function GalleryRoom({ projects, quality }: GalleryRoomProps) {
   // useGLTF will suspend while loading. If the file is missing, it will throw an error.
   const { scene } = useGLTF(modelPath);
 
+  // Global Edit Mode Toggle
+  const { editMode } = useControls({
+    editMode: false,
+  });
+
   // Simple layout: place paintings along a wall
   const wallLength = Math.max(10, projects.length * 4);
 
   return (
     <group>
+      {editMode && <OrbitControls makeDefault />}
       <primitive object={scene} />
+
+      {/* Spawn Point Editor */}
+      {editMode && (
+        <EditableTransform 
+          name="Spawn Point" 
+          initialPosition={spawnPosition as [number, number, number]} 
+          initialRotation={spawnRotation as [number, number, number]} 
+          editMode={editMode}>
+          <mesh>
+            <sphereGeometry args={[0.3]} />
+            <meshBasicMaterial color="red" wireframe />
+          </mesh>
+        </EditableTransform>
+      )}
 
       {/* Paintings */}
       {projects.map((project, index) => {
         const xPos = (index - (projects.length - 1) / 2) * 4;
+        const pos = project.frontmatter.position || [xPos, 1.5, -4.9];
+        const rot = project.frontmatter.rotation || [0, 0, 0];
+        
         return (
-          <Painting
+          <EditableTransform
             key={project.frontmatter.slug}
-            project={project}
-            position={[xPos, 1.5, -4.9]}
-          />
+            name={`Painting: ${project.frontmatter.title}`}
+            initialPosition={pos as [number, number, number]}
+            initialRotation={rot as [number, number, number]}
+            editMode={editMode}
+          >
+            <Painting
+              project={project}
+              position={[0, 0, 0]}
+            />
+          </EditableTransform>
         );
       })}
     </group>

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { PointerLockControls } from '@react-three/drei';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { useControls } from 'leva';
 
 interface PlayerControllerProps {
   mode: 'wasd' | 'click';
@@ -16,6 +17,8 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings }
   const [targetPosition, setTargetPosition] = useState<THREE.Vector3 | null>(null);
   const controlsRef = useRef<any>(null);
 
+  const { editMode } = useControls({ editMode: false });
+
   // WASD State
   const movement = useRef({
     forward: false,
@@ -26,7 +29,7 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (showSettings || !hasSelectedMode) return;
+      if (showSettings || !hasSelectedMode || editMode) return;
       switch (e.code) {
         case 'KeyW': movement.current.forward = true; break;
         case 'KeyS': movement.current.backward = true; break;
@@ -51,20 +54,46 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings }
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showSettings, hasSelectedMode]);
+  }, [showSettings, hasSelectedMode, editMode]);
 
   // If settings are opened, stop movement
   useEffect(() => {
-    if (showSettings || !hasSelectedMode) {
+    if (showSettings || !hasSelectedMode || editMode) {
       movement.current = { forward: false, backward: false, left: false, right: false };
-      if (controlsRef.current?.isLocked) {
-        controlsRef.current.unlock();
+      
+      // Only attempt to unlock if we are currently locked
+      // This prevents the "user has exited the lock before this request was completed" error
+      if (controlsRef.current && controlsRef.current.isLocked) {
+        try {
+          controlsRef.current.unlock();
+        } catch (e) {
+          // Ignore PointerLock errors when the user has already exited the lock
+        }
       }
     }
-  }, [showSettings, hasSelectedMode]);
+  }, [showSettings, hasSelectedMode, editMode, mode]);
+
+  // Auto-lock when returning to the gallery if WASD mode is already selected
+  useEffect(() => {
+    if (mode === 'wasd' && hasSelectedMode && !showSettings && !editMode) {
+      // We need a small delay to ensure the canvas is fully mounted and ready to receive the lock
+      // However, browsers still require a user gesture. But if the user just clicked a "Back to Gallery" link,
+      // that click event might still be valid for requesting a pointer lock if we do it quickly enough.
+      const timer = setTimeout(() => {
+        if (controlsRef.current && !controlsRef.current.isLocked) {
+          try {
+            controlsRef.current.lock();
+          } catch (e) {
+            // Ignore errors if the browser blocks the lock request
+          }
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [hasSelectedMode, mode, showSettings, editMode]);
 
   useFrame((state, delta) => {
-    if (!hasSelectedMode || showSettings) return;
+    if (!hasSelectedMode || showSettings || editMode) return;
 
     if (mode === 'wasd' && controlsRef.current?.isLocked) {
       const speed = 5 * delta;
@@ -86,7 +115,7 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings }
   });
 
   const handleFloorClick = (e: any) => {
-    if (mode === 'click' && !showSettings && hasSelectedMode) {
+    if (mode === 'click' && !showSettings && hasSelectedMode && !editMode) {
       const point = e.point;
       setTargetPosition(new THREE.Vector3(point.x, 1.6, point.z));
     }
@@ -94,7 +123,7 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings }
 
   return (
     <>
-      {mode === 'wasd' && hasSelectedMode && !showSettings && <PointerLockControls ref={controlsRef} />}
+      {mode === 'wasd' && hasSelectedMode && !showSettings && !editMode && <PointerLockControls ref={controlsRef} />}
       
       {/* Invisible floor plane for click-to-move raycasting */}
       {mode === 'click' && (
