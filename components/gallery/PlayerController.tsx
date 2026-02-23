@@ -13,9 +13,10 @@ interface PlayerControllerProps {
 }
 
 export default function PlayerController({ mode, hasSelectedMode, showSettings }: PlayerControllerProps) {
-  const { camera, gl } = useThree();
+  const { camera, gl, scene } = useThree();
   const [targetPosition, setTargetPosition] = useState<THREE.Vector3 | null>(null);
   const controlsRef = useRef<any>(null);
+  const raycaster = useRef(new THREE.Raycaster());
 
   const { editMode } = useControls({ editMode: false });
 
@@ -95,20 +96,69 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings }
   useFrame((state, delta) => {
     if (!hasSelectedMode || showSettings || editMode) return;
 
+    const checkCollision = (direction: THREE.Vector3, distance: number) => {
+      // Raycast from slightly below the camera to avoid hitting the ceiling
+      const origin = camera.position.clone();
+      origin.y -= 0.5; 
+      
+      raycaster.current.set(origin, direction.normalize());
+      
+      // Intersect against all objects in the scene except the invisible floor plane
+      const intersects = raycaster.current.intersectObjects(
+        scene.children.filter(c => c.type !== 'Mesh' || (c as THREE.Mesh).geometry.type !== 'PlaneGeometry'), 
+        true
+      );
+
+      // If we hit something within the movement distance + a small buffer (player radius)
+      if (intersects.length > 0 && intersects[0].distance < distance + 0.5) {
+        return true;
+      }
+      return false;
+    };
+
     if (mode === 'wasd' && controlsRef.current?.isLocked) {
       const speed = 5 * delta;
       
-      if (movement.current.forward) controlsRef.current.moveForward(speed);
-      if (movement.current.backward) controlsRef.current.moveForward(-speed);
-      if (movement.current.right) controlsRef.current.moveRight(speed);
-      if (movement.current.left) controlsRef.current.moveRight(-speed);
+      // Calculate intended movement vectors
+      const forwardVector = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+      forwardVector.y = 0;
+      forwardVector.normalize();
+
+      const rightVector = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      rightVector.y = 0;
+      rightVector.normalize();
+
+      // Apply movement if no collision
+      if (movement.current.forward && !checkCollision(forwardVector, speed)) {
+        controlsRef.current.moveForward(speed);
+      }
+      if (movement.current.backward && !checkCollision(forwardVector.clone().negate(), speed)) {
+        controlsRef.current.moveForward(-speed);
+      }
+      if (movement.current.right && !checkCollision(rightVector, speed)) {
+        controlsRef.current.moveRight(speed);
+      }
+      if (movement.current.left && !checkCollision(rightVector.clone().negate(), speed)) {
+        controlsRef.current.moveRight(-speed);
+      }
       
       // Keep camera at fixed height
       camera.position.y = 1.6;
     } else if (mode === 'click' && targetPosition) {
-      // Lerp camera to target position
-      camera.position.lerp(targetPosition, 0.1);
-      if (camera.position.distanceTo(targetPosition) < 0.1) {
+      // Calculate direction to target
+      const direction = new THREE.Vector3().subVectors(targetPosition, camera.position);
+      direction.y = 0;
+      const distanceToTarget = direction.length();
+      
+      if (distanceToTarget > 0.1) {
+        // Check if path is clear
+        if (!checkCollision(direction, 0.2)) {
+          camera.position.lerp(targetPosition, 0.1);
+        } else {
+          // Stop moving if we hit a wall
+          setTargetPosition(null);
+        }
+      } else {
         setTargetPosition(null);
       }
     }
