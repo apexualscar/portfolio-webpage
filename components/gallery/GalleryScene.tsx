@@ -4,8 +4,8 @@ import { Canvas } from '@react-three/fiber';
 import { Suspense, useState, useEffect } from 'react';
 import { Environment, Loader } from '@react-three/drei';
 import { Settings, MousePointer2, Keyboard } from 'lucide-react';
-import GalleryRoom from './GalleryRoom';
-import PlayerController from './PlayerController';
+import GalleryRoom from '@/components/gallery/GalleryRoom';
+import PlayerController from '@/components/gallery/PlayerController';
 import { Project } from '@/lib/projects';
 
 interface GallerySceneProps {
@@ -14,6 +14,7 @@ interface GallerySceneProps {
 
 export default function GalleryScene({ projects }: GallerySceneProps) {
   const [mode, setMode] = useState<'wasd' | 'click'>('wasd');
+  const [quality, setQuality] = useState<'high' | 'low'>('low');
   const [hasSelectedMode, setHasSelectedMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -23,6 +24,10 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
       setMode(savedMode);
       setHasSelectedMode(true);
     }
+    const savedQuality = localStorage.getItem('portfolio-quality');
+    if (savedQuality === 'high' || savedQuality === 'low') {
+      setQuality(savedQuality);
+    }
   }, []);
 
   const handleSelectMode = (newMode: 'wasd' | 'click') => {
@@ -30,6 +35,11 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
     setHasSelectedMode(true);
     setShowSettings(false);
     localStorage.setItem('portfolio-control-mode', newMode);
+  };
+
+  const handleSelectQuality = (newQuality: 'high' | 'low') => {
+    setQuality(newQuality);
+    localStorage.setItem('portfolio-quality', newQuality);
   };
 
   return (
@@ -48,7 +58,7 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
 
         <Suspense fallback={null}>
           <Environment preset="city" />
-          <GalleryRoom projects={projects} />
+          <GalleryRoom projects={projects} quality={quality} />
         </Suspense>
 
         <PlayerController mode={mode} hasSelectedMode={hasSelectedMode} showSettings={showSettings} />
@@ -87,7 +97,7 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
         )}
 
         {hasSelectedMode && (
-          <div className="absolute bottom-6 left-6 pointer-events-auto">
+          <div className="absolute top-6 left-6 pointer-events-auto">
             <button
               onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); }}
               className="p-3 rounded-full bg-zinc-900/80 border border-zinc-800 text-white hover:bg-zinc-800 backdrop-blur-md transition-all shadow-lg"
@@ -96,7 +106,7 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
             </button>
 
             {showSettings && (
-              <div className="absolute bottom-14 left-0 bg-zinc-900/90 backdrop-blur-md p-4 rounded-xl border border-zinc-800 shadow-xl w-48 mb-2">
+              <div className="absolute top-14 left-0 bg-zinc-900/90 backdrop-blur-md p-4 rounded-xl border border-zinc-800 shadow-xl w-48 mt-2">
                 <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Controls</h3>
                 <div className="flex flex-col gap-2">
                   <button
@@ -112,6 +122,22 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
                   >
                     <MousePointer2 size={16} />
                     Click to Move
+                  </button>
+                </div>
+
+                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3 mt-4">Quality</h3>
+                <div className="flex flex-col gap-2">
+                  <button
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${quality === 'high' ? 'bg-white text-black font-medium' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'}`}
+                    onClick={(e) => { e.stopPropagation(); handleSelectQuality('high'); }}
+                  >
+                    High Res
+                  </button>
+                  <button
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${quality === 'low' ? 'bg-white text-black font-medium' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'}`}
+                    onClick={(e) => { e.stopPropagation(); handleSelectQuality('low'); }}
+                  >
+                    Low Res
                   </button>
                 </div>
               </div>

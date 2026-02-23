@@ -6,9 +6,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Project } from '@/lib/projects';
-import GithubCard from './GithubCard';
-import VideoEmbed from './VideoEmbed';
-import ShaderEmbed from './ShaderEmbed';
+import GithubCard from '@/components/projects/GithubCard';
+import VideoEmbed from '@/components/projects/VideoEmbed';
+import ShaderEmbed from '@/components/projects/ShaderEmbed';
 
 interface ProjectDetailProps {
   project: Project;

@@ -1,29 +1,28 @@
 'use client';
 
 import { Project } from '@/lib/projects';
-import Painting from './Painting';
+import Painting from '@/components/gallery/Painting';
+import { useGLTF } from '@react-three/drei';
 
 interface GalleryRoomProps {
   projects: Project[];
+  quality: 'high' | 'low';
 }
 
-export default function GalleryRoom({ projects }: GalleryRoomProps) {
+export default function GalleryRoom({ projects, quality }: GalleryRoomProps) {
+  // Load the appropriate model based on quality setting
+  // Note: Ensure you have placed your downloaded models at these paths in the public folder
+  const modelPath = quality === 'high' ? '/models/gallery-high.glb' : '/models/gallery-low.glb';
+  
+  // useGLTF will suspend while loading. If the file is missing, it will throw an error.
+  const { scene } = useGLTF(modelPath);
+
   // Simple layout: place paintings along a wall
   const wallLength = Math.max(10, projects.length * 4);
 
   return (
     <group>
-      {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[wallLength, 10]} />
-        <meshStandardMaterial color="#333" roughness={0.8} />
-      </mesh>
-
-      {/* Back Wall */}
-      <mesh position={[0, 2.5, -5]} receiveShadow>
-        <planeGeometry args={[wallLength, 5]} />
-        <meshStandardMaterial color="#eee" roughness={0.9} />
-      </mesh>
+      <primitive object={scene} />
 
       {/* Paintings */}
       {projects.map((project, index) => {
@@ -38,4 +37,12 @@ export default function GalleryRoom({ projects }: GalleryRoomProps) {
       })}
     </group>
   );
+}
+
+// Preload models to avoid stuttering when switching (if they exist)
+try {
+  useGLTF.preload('/models/gallery-high.glb');
+  useGLTF.preload('/models/gallery-low.glb');
+} catch (e) {
+  // Ignore preload errors if files don't exist yet
 }
