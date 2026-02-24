@@ -33,13 +33,19 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings, 
   const raycaster = useRef(new THREE.Raycaster());
   const mousePos = useRef({ x: 0, y: 0 });
 
+  // Floor cursor for click mode
+  const indicatorRef = useRef<THREE.Mesh>(null);
+  // A mathematical plane at y=0.01 used for fast cursor raycasting
+  const floorPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.01));
+
   const { editMode } = useControls({ editMode: false });
 
   // Track mouse position for edge panning in click mode
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       mousePos.current.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mousePos.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+      // Three.js NDC Y is +1 at top, -1 at bottom — invert from screen coords
+      mousePos.current.y = -((e.clientY / window.innerHeight) * 2 - 1);
     };
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
@@ -157,6 +163,23 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings, 
         camera.rotation.set(0, camera.rotation.y, 0);
       }
 
+      // Update floor cursor indicator position via plane intersection
+      if (indicatorRef.current) {
+        const mouseNDC = new THREE.Vector2(mousePos.current.x, mousePos.current.y);
+        raycaster.current.setFromCamera(mouseNDC, camera);
+        const hit = new THREE.Vector3();
+        const intersected = raycaster.current.ray.intersectPlane(floorPlane.current, hit);
+        if (intersected) {
+          indicatorRef.current.position.set(hit.x, 0.02, hit.z);
+          // Subtle pulse on scale
+          const pulse = 1 + 0.08 * Math.sin(state.clock.elapsedTime * 3);
+          indicatorRef.current.scale.setScalar(pulse);
+        } else {
+          // Hide below floor if no intersection
+          indicatorRef.current.position.set(0, -100, 0);
+        }
+      }
+
       // Edge panning — rotate camera when mouse nears screen edge
       const edgeThreshold = 0.80;
       const panSpeed = 1.8 * delta;
@@ -207,6 +230,14 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings, 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} onClick={handleFloorClick} visible={false}>
           <planeGeometry args={[100, 100]} />
           <meshBasicMaterial />
+        </mesh>
+      )}
+
+      {/* Floor cursor ring — shows where the player will walk to */}
+      {mode === 'click' && hasSelectedMode && (
+        <mesh ref={indicatorRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, -100, 0]} renderOrder={999}>
+          <ringGeometry args={[0.20, 0.34, 48]} />
+          <meshBasicMaterial color="#ffffff" opacity={0.9} transparent depthTest={false} depthWrite={false} />
         </mesh>
       )}
     </>
