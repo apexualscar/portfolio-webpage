@@ -103,13 +103,21 @@ const IFRAME_H = 540;
 // matrix3d each frame so the iframe exactly follows the perspective-warped
 // painting mesh, including when viewed from oblique angles.
 function UnityOnMesh({ src, meshRef }: { src: string; meshRef: React.RefObject<THREE.Mesh | null> }) {
-  const { camera, gl } = useThree();
+  const { camera, gl, scene } = useThree();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const iframeWrapRef = useRef<HTMLDivElement | null>(null);
 
   // Pre-allocate to avoid per-frame GC pressure
   const frustum = useRef(new THREE.Frustum());
   const projScreenMatrix = useRef(new THREE.Matrix4());
+  const raycaster = useRef(new THREE.Raycaster());
+  const meshWorldPos = useRef(new THREE.Vector3());
+  const rayDir = useRef(new THREE.Vector3());
+
+  // Occlusion is checked every N frames and cached — raycasting every frame
+  // against the whole scene is expensive. 3-frame lag is imperceptible.
+  const occlusionCache = useRef(false);
+  const occlusionFrame = useRef(0);
 
   useEffect(() => {
     // Outer div covers the full canvas so overflow:hidden clips perspective edges.
@@ -150,14 +158,37 @@ function UnityOnMesh({ src, meshRef }: { src: string; meshRef: React.RefObject<T
     if (!container || !wrap || !mesh) return;
 
     // --- Frustum visibility check ---
-    // Build the camera frustum and test whether the mesh's bounding sphere
-    // intersects it. This correctly hides the overlay when the player turns
-    // away (camera forward no longer contains the painting), unlike a simple
-    // dot-product check which only tests camera *position* vs face normal.
     camera.updateMatrixWorld();
     projScreenMatrix.current.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     frustum.current.setFromProjectionMatrix(projScreenMatrix.current);
     if (!frustum.current.intersectsObject(mesh)) {
+      container.style.display = 'none';
+      return;
+    }
+
+    // --- Occlusion check (every 3 frames, cached in between) ---
+    occlusionFrame.current++;
+    if (occlusionFrame.current % 3 === 0) {
+      mesh.getWorldPosition(meshWorldPos.current);
+      rayDir.current.subVectors(meshWorldPos.current, camera.position).normalize();
+      raycaster.current.set(camera.position, rayDir.current);
+
+      const distToMesh = camera.position.distanceTo(meshWorldPos.current);
+      const hits = raycaster.current.intersectObjects(scene.children, true);
+
+      // Collect UUIDs belonging to this painting's group so we don't
+      // accidentally self-occlude on the frame mesh or canvas plane.
+      const paintingGroup = mesh.parent;
+      const paintingUUIDs = new Set<string>();
+      paintingGroup?.traverse(o => paintingUUIDs.add(o.uuid));
+
+      const isBlocked = hits.some(
+        hit => !paintingUUIDs.has(hit.object.uuid) && hit.distance < distToMesh - 0.05
+      );
+      occlusionCache.current = isBlocked;
+    }
+
+    if (occlusionCache.current) {
       container.style.display = 'none';
       return;
     }
