@@ -3,12 +3,14 @@
 import { Canvas } from '@react-three/fiber';
 import { Suspense, useState, useEffect, useRef } from 'react';
 import { Environment, Loader } from '@react-three/drei';
+import { Leva } from 'leva';
 import { Settings, MousePointer2, Keyboard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import GalleryRoom from '@/components/gallery/GalleryRoom';
 import PlayerController from '@/components/gallery/PlayerController';
 import InteractionManager from '@/components/gallery/InteractionManager';
 import { Project } from '@/lib/projects';
+import { galleryState } from '@/lib/galleryState';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface GallerySceneProps {
@@ -31,7 +33,30 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [interactableProject, setInteractableProject] = useState<Project | null>(null);
   const [isZooming, setIsZooming] = useState(false);
+  const [isPointerLocked, setIsPointerLocked] = useState(false);
+  const [showLeva, setShowLeva] = useState(false);
   const cameraRef = useRef<any>(null);
+
+  // Keep galleryState in sync so shader components can read it inside the Canvas.
+  useEffect(() => {
+    galleryState.isZooming = isZooming;
+  }, [isZooming]);
+
+  // Track pointer lock so we can show a "Click to resume" hint in WASD mode.
+  useEffect(() => {
+    const onLockChange = () => setIsPointerLocked(!!document.pointerLockElement);
+    document.addEventListener('pointerlockchange', onLockChange);
+    return () => document.removeEventListener('pointerlockchange', onLockChange);
+  }, []);
+
+  // Backtick ( ` ) toggles the Leva dev panel.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === 'Backquote') setShowLeva(prev => !prev);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     sessionStorage.removeItem('gallery-zooming');
@@ -85,6 +110,7 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
 
   return (
     <>
+      <Leva hidden={!showLeva} />
       <div className={`w-full h-full transition-all duration-1000 ${flowStep !== 'done' ? 'blur-md scale-105' : 'blur-0 scale-100'}`}>
         <Canvas
           shadows
@@ -130,6 +156,15 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
               View
             </div>
           )}
+        </div>
+      )}
+
+      {/* WASD click-to-resume hint — shown when pointer lock is not active */}
+      {flowStep === 'done' && mode === 'wasd' && !isPointerLocked && !showSettings && !isZooming && (
+        <div className="fixed inset-0 z-[25] flex items-center justify-center pointer-events-none">
+          <div className="px-5 py-2.5 rounded-full bg-black/60 border border-white/20 backdrop-blur-sm text-white/70 text-sm tracking-widest uppercase font-medium select-none">
+            Click to resume
+          </div>
         </div>
       )}
 
@@ -189,18 +224,24 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
                   <div className="grid grid-cols-2 gap-6">
                     <button
                       onClick={(e) => { e.stopPropagation(); handleSelectMode('wasd'); }}
-                      className="group flex flex-col items-center justify-center gap-4 p-8 rounded-2xl border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/50 hover:-translate-y-1 transition-all duration-300 text-white aspect-square"
+                      className="group flex flex-col items-center justify-start gap-3 p-8 pt-7 rounded-2xl border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/50 hover:-translate-y-1 transition-all duration-300 text-white"
                     >
-                      <Keyboard size={40} className="text-zinc-400 group-hover:text-white transition-colors duration-300" />
+                      <Keyboard size={40} className="text-zinc-400 group-hover:text-white transition-colors duration-300 shrink-0" />
                       <span className="font-medium tracking-wider">WASD</span>
+                      <p className="text-zinc-500 text-xs leading-relaxed text-center group-hover:text-zinc-400 transition-colors duration-300">
+                        Move with W A S D.<br />Mouse to look around.<br />Click canvas to lock cursor.
+                      </p>
                     </button>
                     
                     <button
                       onClick={(e) => { e.stopPropagation(); handleSelectMode('click'); }}
-                      className="group flex flex-col items-center justify-center gap-4 p-8 rounded-2xl border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/50 hover:-translate-y-1 transition-all duration-300 text-white aspect-square"
+                      className="group flex flex-col items-center justify-start gap-3 p-8 pt-7 rounded-2xl border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/50 hover:-translate-y-1 transition-all duration-300 text-white"
                     >
-                      <MousePointer2 size={40} className="text-zinc-400 group-hover:text-white transition-colors duration-300" />
+                      <MousePointer2 size={40} className="text-zinc-400 group-hover:text-white transition-colors duration-300 shrink-0" />
                       <span className="font-medium tracking-wider">CLICK</span>
+                      <p className="text-zinc-500 text-xs leading-relaxed text-center group-hover:text-zinc-400 transition-colors duration-300">
+                        Click the floor to walk.<br />Move mouse to screen edge to pan.<br />No cursor lock needed.
+                      </p>
                     </button>
                   </div>
                 </motion.div>
