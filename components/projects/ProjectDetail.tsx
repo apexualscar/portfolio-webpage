@@ -9,6 +9,7 @@ import { Project } from '@/lib/projects';
 import GithubCard from '@/components/projects/GithubCard';
 import VideoEmbed from '@/components/projects/VideoEmbed';
 import ShaderEmbed from '@/components/projects/ShaderEmbed';
+import DarkModeToggle from '@/components/shared/DarkModeToggle';
 
 interface ProjectDetailProps {
   project: Project;
@@ -36,7 +37,7 @@ export default function ProjectDetail({ project }: ProjectDetailProps) {
   };
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-6 py-24 dark:bg-black">
+    <main className="min-h-screen bg-zinc-50 px-6 py-24 dark:bg-zinc-800">
       <div className="mx-auto max-w-3xl">
         <button
           onClick={handleBack}
@@ -46,25 +47,27 @@ export default function ProjectDetail({ project }: ProjectDetailProps) {
           Back to Gallery
         </button>
 
-        <header className="mb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-white sm:text-5xl">
-            {project.frontmatter.title}
-          </h1>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {project.frontmatter.tags.map((tag) => (
-              <span key={tag} className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                {tag}
-              </span>
-            ))}
-          </div>
-          <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
-            {new Date(project.frontmatter.date).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </p>
-        </header>
+        <div className="flex items-start justify-between gap-4 mb-12">
+          <header>
+            <h1 className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-white sm:text-5xl">
+              {project.frontmatter.title}
+            </h1>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {project.frontmatter.tags.map((tag) => (
+                <span key={tag} className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  {tag}
+                </span>
+              ))}
+            </div>
+            <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
+              {new Date(project.frontmatter.date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </p>
+          </header>
+        </div>
 
         {project.frontmatter.githubUrl && (
           <div className="mb-12">
@@ -88,6 +91,7 @@ export default function ProjectDetail({ project }: ProjectDetailProps) {
           {mdxSource && <MDXRemote {...mdxSource} />}
         </article>
       </div>
+      <DarkModeToggle />
     </main>
   );
 }

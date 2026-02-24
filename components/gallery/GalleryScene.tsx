@@ -4,13 +4,14 @@ import { Canvas } from '@react-three/fiber';
 import { Suspense, useState, useEffect, useRef } from 'react';
 import { Environment, Loader } from '@react-three/drei';
 import { Leva } from 'leva';
-import { Settings, MousePointer2, Keyboard } from 'lucide-react';
+import { Settings, MousePointer2, Keyboard, Sun, Moon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import GalleryRoom from '@/components/gallery/GalleryRoom';
 import PlayerController from '@/components/gallery/PlayerController';
 import InteractionManager from '@/components/gallery/InteractionManager';
 import { Project } from '@/lib/projects';
 import { galleryState } from '@/lib/galleryState';
+import { useDarkMode } from '@/components/shared/DarkModeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface GallerySceneProps {
@@ -35,6 +36,7 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
   const [isZooming, setIsZooming] = useState(false);
   const [isPointerLocked, setIsPointerLocked] = useState(false);
   const [showLeva, setShowLeva] = useState(false);
+  const { isDark, toggle: toggleDark } = useDarkMode();
   const cameraRef = useRef<any>(null);
 
   // Keep galleryState in sync so shader components can read it inside the Canvas.
@@ -294,6 +296,15 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
                     Low Res
                   </button>
                 </div>
+
+                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3 mt-4">Appearance</h3>
+                <button
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white w-full transition-colors"
+                  onClick={(e) => { e.stopPropagation(); toggleDark(); }}
+                >
+                  {isDark ? <Sun size={16} /> : <Moon size={16} />}
+                  {isDark ? 'Light Mode' : 'Dark Mode'}
+                </button>
               </div>
             )}
           </div>

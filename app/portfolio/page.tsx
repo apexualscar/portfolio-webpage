@@ -1,12 +1,13 @@
 import { getSortedProjectsData } from '@/lib/projects';
 import ProjectCard from '@/components/projects/ProjectCard';
 import ViewToggle from '@/components/shared/ViewToggle';
+import DarkModeToggle from '@/components/shared/DarkModeToggle';
 
 export default function PortfolioPage() {
   const projects = getSortedProjectsData();
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-6 py-24 dark:bg-black">
+    <main className="min-h-screen bg-zinc-50 px-6 py-24 dark:bg-zinc-800">
       <div className="mx-auto max-w-5xl">
         <header className="mb-16">
           <h1 className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-white sm:text-5xl">
@@ -24,6 +25,7 @@ export default function PortfolioPage() {
         </div>
       </div>
       <ViewToggle />
+      <DarkModeToggle />
     </main>
   );
 }
