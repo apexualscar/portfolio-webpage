@@ -2,6 +2,7 @@
 import * as THREE from "three";
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { galleryState } from "@/lib/galleryState";
 
 const vertexShader = /* glsl */ `
   precision highp float;
@@ -29,28 +30,27 @@ const fragmentShader = /* glsl */ `
 `;
 
 const GenericShaderMaterial = () => {
-  const mat = useRef<THREE.ShaderMaterial>(null);
   const timeRef = useRef(0);
 
+  // Stable ref — never recreated so R3F reconciler never resets uTime to 0.
+  const uniforms = useRef({
+    uTime: { value: 0 },
+    uResolution: { value: new THREE.Vector2(1, 1) },
+  });
+
   useFrame((state, delta) => {
-    if (!mat.current) return;
+    // Pause time accumulation while the user is zoomed into / viewing the painting.
+    if (galleryState.isZooming) return;
     timeRef.current += delta;
-    mat.current.uniforms.uTime.value = timeRef.current;
-    mat.current.uniforms.uResolution.value.set(
-      state.size.width,
-      state.size.height
-    );
+    uniforms.current.uTime.value = timeRef.current;
+    uniforms.current.uResolution.value.set(state.size.width, state.size.height);
   });
 
   return (
     <shaderMaterial
-      ref={mat}
       vertexShader={vertexShader}
       fragmentShader={fragmentShader}
-      uniforms={{
-        uTime: { value: 0 },
-        uResolution: { value: new THREE.Vector2(1, 1) },
-      }}
+      uniforms={uniforms.current}
     />
   );
 }

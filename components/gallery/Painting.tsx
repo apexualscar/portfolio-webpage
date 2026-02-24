@@ -1,6 +1,7 @@
 'use client';
 
 import { materialRegistry } from '@/materials/registry';
+import { galleryState } from '@/lib/galleryState';
 
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
@@ -51,8 +52,13 @@ function ImageMaterial({ url, emissiveIntensity }: { url: string, emissiveIntens
 
 function ShaderMaterial({ src, emissiveIntensity }: { src: string, emissiveIntensity: any }) {
   const [shaderCode, setShaderCode] = useState<string | null>(null);
-  const materialRef = useRef<THREE.ShaderMaterial>(null);
   const timeRef = useRef(0);
+
+  // Stable ref so R3F reconciler never resets uTime back to 0 on re-render.
+  const uniforms = useRef({
+    uTime: { value: 0 },
+    uResolution: { value: new THREE.Vector2(2, 1.5) }
+  });
 
   useEffect(() => {
     fetch(src)
@@ -62,16 +68,10 @@ function ShaderMaterial({ src, emissiveIntensity }: { src: string, emissiveInten
   }, [src]);
 
   useFrame((_state, delta) => {
-    if (materialRef.current) {
-      timeRef.current += delta;
-      materialRef.current.uniforms.uTime.value = timeRef.current;
-    }
+    if (galleryState.isZooming) return;
+    timeRef.current += delta;
+    uniforms.current.uTime.value = timeRef.current;
   });
-
-  const uniforms = useMemo(() => ({
-    uTime: { value: 0 },
-    uResolution: { value: new THREE.Vector2(2, 1.5) }
-  }), []);
 
   if (!shaderCode) {
     // @ts-ignore
@@ -89,8 +89,7 @@ function ShaderMaterial({ src, emissiveIntensity }: { src: string, emissiveInten
   // @ts-ignore
   return (
     <animated.shaderMaterial
-      ref={materialRef}
-      uniforms={uniforms}
+      uniforms={uniforms.current}
       vertexShader={vertexShader}
       fragmentShader={shaderCode}
     />
