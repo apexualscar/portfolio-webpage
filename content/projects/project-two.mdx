@@ -12,6 +12,28 @@ videoUrl: ""
 shaderType: "glsl"
 shaderSrc: "/shaders/fractal.tsx"
 material: "fractalShader"
+shaderUniforms:
+  - name: uFrequency
+    label: Frequency
+    type: float
+    default: 10.0
+    min: 1.0
+    max: 20.0
+    step: 0.5
+  - name: uDivisions
+    label: Divisions
+    type: float
+    default: 4.0
+    min: 1.0
+    max: 8.0
+    step: 1.0
+  - name: uIntensity
+    label: Intensity
+    type: float
+    default: 0.01
+    min: 0.001
+    max: 0.1
+    step: 0.001
 ---
 
 # Project Two

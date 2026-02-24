@@ -54,7 +54,7 @@ export default function ProjectDetail({ project }: ProjectDetailProps) {
             </h1>
             <div className="mt-4 flex flex-wrap gap-2">
               {project.frontmatter.tags.map((tag) => (
-                <span key={tag} className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                <span key={tag} className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700 ring-1 ring-zinc-300 dark:bg-zinc-600 dark:text-zinc-100 dark:ring-zinc-500">
                   {tag}
                 </span>
               ))}
@@ -83,7 +83,12 @@ export default function ProjectDetail({ project }: ProjectDetailProps) {
 
         {project.frontmatter.shaderType !== 'none' && project.frontmatter.shaderSrc && (
           <div className="mb-12">
-            <ShaderEmbed type={project.frontmatter.shaderType} src={project.frontmatter.shaderSrc} />
+            <ShaderEmbed
+              type={project.frontmatter.shaderType}
+              src={project.frontmatter.shaderSrc}
+              material={project.frontmatter.material}
+              shaderUniforms={project.frontmatter.shaderUniforms}
+            />
           </div>
         )}
 

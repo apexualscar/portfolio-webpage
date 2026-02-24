@@ -4,23 +4,24 @@ position: [0.39, 1.5, 4.64]
 rotation: [3.14, -0.08, 3.14]
 slug: "project-three"
 date: "2025-11-20"
-description: "A custom GLSL shader showcasing raymarching techniques."
-tags: ["GLSL", "WebGL", "Shaders"]
+description: "An interactive Unity WebGL demo running directly in the gallery."
+tags: ["Unity", "C#", "WebGL"]
 thumbnail: "/thumbnails/project-one/thumbnail.svg"
 githubUrl: "https://github.com/example/project-two"
 videoUrl: ""
-shaderType: "glsl"
-shaderSrc: ""
+shaderType: "unity"
+shaderSrc: "/unity-builds/demo"
 material: ""
 ---
 
 # Project Three
 
-This project demonstrates advanced raymarching techniques using raw GLSL.
+An interactive Unity WebGL experience embedded directly in the portfolio gallery.
+Approach the painting and click **▶ Play** to launch the game inline — no page navigation needed.
 
-## Techniques Used
-- Raymarching
-- Signed Distance Fields (SDF)
-- Soft shadows
+Replace the `shaderSrc` frontmatter field with the path to your exported Unity WebGL build folder (the one containing `index.html`).
 
-Enjoy the visual experience!
+## Tech Stack
+- Unity 2023 LTS
+- C# gameplay scripting
+- WebGL export

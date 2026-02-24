@@ -100,7 +100,10 @@ export default function Painting({ project, position }: PaintingProps) {
   const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
+  const [unityActive, setUnityActive] = useState(false);
   const meshRef = useRef<THREE.Mesh>(null);
+
+  const isUnity = project.frontmatter.shaderType === 'unity';
 
   const { editMode } = useControls({ editMode: false });
 
@@ -111,12 +114,27 @@ export default function Painting({ project, position }: PaintingProps) {
     config: { mass: 1, tension: 280, friction: 60 },
   });
 
+  // Escape key closes the Unity overlay
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setUnityActive(false);
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, []);
+
   const handleClick = (e: any) => {
     if (editMode) return;
     e.stopPropagation();
     
     // Only allow clicking if within 2.0 units (the "View" distance)
     if (e.distance > 2.0) return;
+
+    // Unity paintings open inline rather than navigating away
+    if (isUnity) {
+      setUnityActive(true);
+      return;
+    }
 
     setClicked(true);
     
@@ -177,6 +195,61 @@ export default function Painting({ project, position }: PaintingProps) {
           <ImageMaterial url={project.frontmatter.thumbnail} emissiveIntensity={emissiveIntensity} />
         )}
       </animated.mesh>
+
+      {/* Unity WebGL overlay — lives in DOM space via <Html transform> so an iframe can run here */}
+      {isUnity && (
+        <Html
+          transform
+          occlude
+          position={[0, 0, 0.03]}
+          scale={0.01}
+          // While inactive, pointer events are none so the mesh click handler still fires
+          style={{ pointerEvents: unityActive ? 'auto' : 'none' }}
+        >
+          <div style={{ width: 200, height: 150, overflow: 'hidden', borderRadius: 4, background: '#000', position: 'relative' }}>
+            {unityActive ? (
+              <>
+                <iframe
+                  src={`${project.frontmatter.shaderSrc}/index.html`}
+                  width={200}
+                  height={150}
+                  style={{ border: 'none', display: 'block' }}
+                  allow="autoplay; fullscreen; vr"
+                />
+                {/* Close button */}
+                <button
+                  onClick={() => setUnityActive(false)}
+                  style={{
+                    position: 'absolute', top: 6, right: 6,
+                    background: 'rgba(0,0,0,0.65)', color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.25)',
+                    borderRadius: '50%', width: 22, height: 22,
+                    cursor: 'pointer', fontSize: 13,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    lineHeight: 1,
+                  }}
+                >✕</button>
+              </>
+            ) : (
+              /* Passive overlay — pointer-events: none, only visible on hover */
+              <div style={{
+                width: '100%', height: '100%',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                background: hovered ? 'rgba(0,0,0,0.5)' : 'transparent',
+                color: '#fff', gap: 6,
+                transition: 'background 0.2s',
+              }}>
+                {hovered && (
+                  <>
+                    <div style={{ fontSize: 30 }}>▶</div>
+                    <div style={{ fontSize: 9, opacity: 0.75, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Click to Play</div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </Html>
+      )}
 
       {/* Label */}
       <Text

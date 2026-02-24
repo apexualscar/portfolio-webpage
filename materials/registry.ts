@@ -1,10 +1,13 @@
+import React from 'react';
 import GenericShaderMaterial from '@/public/shaders/generic';
 import FractalShaderMaterial from '@/public/shaders/fractal';
-// Example: import CustomShaderMaterial from '@/components/materials/CustomShader.tsx';
 
-export const materialRegistry: Record<string, React.ComponentType<{ emissiveIntensity: any }>> = {
+export type ShaderMaterialProps = {
+  emissiveIntensity?: any;
+  uniformOverrides?: Record<string, any>;
+};
+
+export const materialRegistry: Record<string, React.ComponentType<ShaderMaterialProps>> = {
   genericShader: GenericShaderMaterial,
   fractalShader: FractalShaderMaterial,
-  // customShader: CustomShaderMaterial,
-  // Add more mappings as needed
 };

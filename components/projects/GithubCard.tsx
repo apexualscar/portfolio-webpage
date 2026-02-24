@@ -35,7 +35,7 @@ export default function GithubCard({ url }: GithubCardProps) {
   }, [url]);
 
   if (loading) {
-    return <div className="h-24 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />;
+    return <div className="h-24 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-600" />;
   }
 
   if (!repoData) {
@@ -44,7 +44,7 @@ export default function GithubCard({ url }: GithubCardProps) {
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-2 rounded-xl border border-zinc-200 p-4 text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        className="flex items-center gap-2 rounded-xl border border-zinc-200 p-4 text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-600 dark:bg-zinc-700"
       >
         <Github size={20} />
         <span>View on GitHub</span>
@@ -57,7 +57,7 @@ export default function GithubCard({ url }: GithubCardProps) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block rounded-xl border border-zinc-200 bg-white p-6 transition-all hover:border-zinc-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700"
+      className="group block rounded-xl border border-zinc-200 bg-white p-6 transition-all hover:border-zinc-300 hover:shadow-sm dark:border-zinc-600 dark:bg-zinc-700 dark:hover:border-zinc-500"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

@@ -11,8 +11,8 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const { title, slug, description, tags, thumbnail, githubUrl, videoUrl, shaderType } = project.frontmatter;
 
   return (
-    <Link href={`/projects/${slug}`} className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200 transition-all hover:shadow-md dark:bg-zinc-900 dark:ring-zinc-800">
-      <div className="relative aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+    <Link href={`/projects/${slug}`} className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200 transition-all hover:shadow-md dark:bg-zinc-700 dark:ring-zinc-600 hover:dark:ring-zinc-500">
+      <div className="relative aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-zinc-600">
         <Image
           src={thumbnail}
           alt={title}
@@ -27,7 +27,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         
         <div className="mt-4 flex flex-wrap gap-2">
           {tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+            <span key={tag} className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-600 dark:text-zinc-200">
               {tag}
             </span>
           ))}

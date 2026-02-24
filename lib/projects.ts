@@ -4,6 +4,16 @@ import matter from 'gray-matter';
 
 const projectsDirectory = path.join(process.cwd(), 'content/projects');
 
+export interface ShaderUniformDef {
+  name: string;      // GLSL uniform name, e.g. "uSpeed"
+  label: string;     // Human-readable label shown in the UI
+  type: 'float' | 'color';
+  default: number | string;  // number for float, '#rrggbb' for color
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
 export interface ProjectFrontmatter {
   title: string;
   slug: string;
@@ -18,6 +28,7 @@ export interface ProjectFrontmatter {
   position?: [number, number, number];
   rotation?: [number, number, number];
   material?: string;
+  shaderUniforms?: ShaderUniformDef[];
 }
 
 export interface Project {
