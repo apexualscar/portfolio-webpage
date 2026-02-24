@@ -31,8 +31,19 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings, 
   const [targetPosition, setTargetPosition] = useState<THREE.Vector3 | null>(null);
   const controlsRef = useRef<any>(null);
   const raycaster = useRef(new THREE.Raycaster());
+  const mousePos = useRef({ x: 0, y: 0 });
 
   const { editMode } = useControls({ editMode: false });
+
+  // Track mouse position for edge panning in click mode
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      mousePos.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mousePos.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
   // WASD State
   const movement = useRef({
@@ -139,22 +150,43 @@ export default function PlayerController({ mode, hasSelectedMode, showSettings, 
       
       // Keep camera at fixed height
       camera.position.y = 1.6;
-    } else if (mode === 'click' && targetPosition) {
-      // Calculate direction to target
-      const direction = new THREE.Vector3().subVectors(targetPosition, camera.position);
-      direction.y = 0;
-      const distanceToTarget = direction.length();
-      
-      if (distanceToTarget > 0.1) {
-        // Check if path is clear
-        if (!checkCollision(direction, 0.2)) {
-          camera.position.lerp(targetPosition, 0.1);
+    } else if (mode === 'click') {
+      // In click mode the camera should always stay level — zero out any accumulated
+      // pitch (x) or roll (z) that might have been left by the zoom animation.
+      if (camera.rotation.x !== 0 || camera.rotation.z !== 0) {
+        camera.rotation.set(0, camera.rotation.y, 0);
+      }
+
+      // Edge panning — rotate camera when mouse nears screen edge
+      const edgeThreshold = 0.80;
+      const panSpeed = 1.8 * delta;
+      const mx = mousePos.current.x;
+
+      if (Math.abs(mx) > edgeThreshold) {
+        const sign = mx > 0 ? -1 : 1;
+        const intensity = (Math.abs(mx) - edgeThreshold) / (1 - edgeThreshold);
+        // Explicitly zero out pitch (x) and roll (z) so edge-panning can never
+        // accumulate vertical tilt from prior zoom animations.
+        camera.rotation.set(0, camera.rotation.y + sign * intensity * panSpeed, 0);
+      }
+
+      if (targetPosition) {
+        // Calculate direction to target
+        const direction = new THREE.Vector3().subVectors(targetPosition, camera.position);
+        direction.y = 0;
+        const distanceToTarget = direction.length();
+
+        if (distanceToTarget > 0.1) {
+          // Check if path is clear
+          if (!checkCollision(direction, 0.2)) {
+            camera.position.lerp(targetPosition, 0.1);
+          } else {
+            // Stop moving if we hit a wall
+            setTargetPosition(null);
+          }
         } else {
-          // Stop moving if we hit a wall
           setTargetPosition(null);
         }
-      } else {
-        setTargetPosition(null);
       }
     }
   });

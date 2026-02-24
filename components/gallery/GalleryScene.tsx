@@ -112,6 +112,7 @@ export default function GalleryScene({ projects }: GallerySceneProps) {
               isZooming={isZooming} 
               setIsZooming={setIsZooming} 
               cameraRef={cameraRef}
+              mode={mode}
             />
           </Suspense>
 

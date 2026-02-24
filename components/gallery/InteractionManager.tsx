@@ -14,9 +14,10 @@ interface InteractionManagerProps {
   isZooming: boolean;
   setIsZooming: (zooming: boolean) => void;
   cameraRef?: React.MutableRefObject<any>;
+  mode: 'wasd' | 'click';
 }
 
-export default function InteractionManager({ projects, setInteractableProject, isZooming, setIsZooming }: InteractionManagerProps) {
+export default function InteractionManager({ projects, setInteractableProject, isZooming, setIsZooming, mode }: InteractionManagerProps) {
   const { camera, scene } = useThree();
   const raycaster = useRef(new THREE.Raycaster());
   const center = new THREE.Vector2(0, 0);
@@ -81,6 +82,10 @@ export default function InteractionManager({ projects, setInteractableProject, i
 
     const handleCustomZoom = (e: CustomEvent) => {
       if (!isZooming && !editMode) {
+        // In WASD mode, only allow zoom if pointer lock is already active.
+        // This prevents the canvas click used to re-acquire lock from
+        // simultaneously triggering a painting zoom.
+        if (mode === 'wasd' && !document.pointerLockElement) return;
         const project = projects.find(p => p.frontmatter.slug === e.detail.slug);
         if (project) triggerZoom(project);
       }
@@ -94,7 +99,7 @@ export default function InteractionManager({ projects, setInteractableProject, i
       document.removeEventListener('click', handleClick);
       document.removeEventListener('trigger-zoom', handleCustomZoom as EventListener);
     };
-  }, [isZooming, editMode, projects]);
+  }, [isZooming, editMode, projects, mode]);
 
   const triggerZoom = (project: Project) => {
     setIsZooming(true);

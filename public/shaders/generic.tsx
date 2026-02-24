@@ -30,10 +30,12 @@ const fragmentShader = /* glsl */ `
 
 const GenericShaderMaterial = () => {
   const mat = useRef<THREE.ShaderMaterial>(null);
+  const timeRef = useRef(0);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!mat.current) return;
-    mat.current.uniforms.uTime.value = state.clock.getElapsedTime();
+    timeRef.current += delta;
+    mat.current.uniforms.uTime.value = timeRef.current;
     mat.current.uniforms.uResolution.value.set(
       state.size.width,
       state.size.height

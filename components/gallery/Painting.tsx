@@ -52,6 +52,7 @@ function ImageMaterial({ url, emissiveIntensity }: { url: string, emissiveIntens
 function ShaderMaterial({ src, emissiveIntensity }: { src: string, emissiveIntensity: any }) {
   const [shaderCode, setShaderCode] = useState<string | null>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
+  const timeRef = useRef(0);
 
   useEffect(() => {
     fetch(src)
@@ -60,9 +61,10 @@ function ShaderMaterial({ src, emissiveIntensity }: { src: string, emissiveInten
       .catch(err => console.error("Failed to load shader", err));
   }, [src]);
 
-  useFrame((state) => {
+  useFrame((_state, delta) => {
     if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+      timeRef.current += delta;
+      materialRef.current.uniforms.uTime.value = timeRef.current;
     }
   });
 
