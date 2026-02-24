@@ -95,9 +95,9 @@ function homography(W: number, H: number, to: [number,number][]): string {
 }
 // ---------------------------------------------------------------------------
 
-// Natural pixel size of the iframe (must match Unity canvas aspect ≈ 4:3)
-const IFRAME_W = 800;
-const IFRAME_H = 600;
+// Natural pixel size of the iframe — must match the Unity build resolution (960×540 = 16:9)
+const IFRAME_W = 960;
+const IFRAME_H = 540;
 
 // Mounts a full-canvas fixed div containing an iframe and applies a CSS
 // matrix3d each frame so the iframe exactly follows the perspective-warped
@@ -106,6 +106,10 @@ function UnityOnMesh({ src, meshRef }: { src: string; meshRef: React.RefObject<T
   const { camera, gl } = useThree();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const iframeWrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Pre-allocate to avoid per-frame GC pressure
+  const frustum = useRef(new THREE.Frustum());
+  const projScreenMatrix = useRef(new THREE.Matrix4());
 
   useEffect(() => {
     // Outer div covers the full canvas so overflow:hidden clips perspective edges.
@@ -140,9 +144,24 @@ function UnityOnMesh({ src, meshRef }: { src: string; meshRef: React.RefObject<T
   }, [src]);
 
   useFrame(() => {
+    const container = containerRef.current;
     const wrap = iframeWrapRef.current;
     const mesh = meshRef.current;
-    if (!wrap || !mesh) return;
+    if (!container || !wrap || !mesh) return;
+
+    // --- Frustum visibility check ---
+    // Build the camera frustum and test whether the mesh's bounding sphere
+    // intersects it. This correctly hides the overlay when the player turns
+    // away (camera forward no longer contains the painting), unlike a simple
+    // dot-product check which only tests camera *position* vs face normal.
+    camera.updateMatrixWorld();
+    projScreenMatrix.current.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    frustum.current.setFromProjectionMatrix(projScreenMatrix.current);
+    if (!frustum.current.intersectsObject(mesh)) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = '';
 
     // Project all 4 corners of the plane (local space) → viewport px
     const corners: [number, number, number][] = [
