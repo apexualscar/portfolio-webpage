@@ -4,8 +4,8 @@ import { materialRegistry } from '@/materials/registry';
 import { galleryState } from '@/lib/galleryState';
 
 import { useState, useRef, useMemo, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { Text, Html, useVideoTexture } from '@react-three/drei';
+import { useFrame, useThree } from '@react-three/fiber';
+import { Text, useVideoTexture } from '@react-three/drei';
 import { useSpring, animated } from '@react-spring/three';
 import { useRouter } from 'next/navigation';
 import * as THREE from 'three';
@@ -48,6 +48,126 @@ function ImageMaterial({ url, emissiveIntensity }: { url: string, emissiveIntens
       />
     </>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Homographic (perspective) helpers
+// Computes a CSS matrix3d string that maps a rectangle of size (W×H) to an
+// arbitrary quad defined by four 2-D screen points (order: TL, TR, BR, BL).
+// Based on the adjugate method from https://franklinta.com/2014/09/08/computing-css-matrix3d-transforms/
+// ---------------------------------------------------------------------------
+function adj3(m: number[]): number[] {
+  return [
+    m[4]*m[8]-m[5]*m[7], m[2]*m[7]-m[1]*m[8], m[1]*m[5]-m[2]*m[4],
+    m[5]*m[6]-m[3]*m[8], m[0]*m[8]-m[2]*m[6], m[2]*m[3]-m[0]*m[5],
+    m[3]*m[7]-m[4]*m[6], m[1]*m[6]-m[0]*m[7], m[0]*m[4]-m[1]*m[3],
+  ];
+}
+function mm3(a: number[], b: number[]): number[] {
+  const c = new Array(9).fill(0);
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++)
+      for (let k = 0; k < 3; k++)
+        c[3*i+j] += a[3*i+k] * b[3*k+j];
+  return c;
+}
+function mv3(m: number[], v: number[]): number[] {
+  return [
+    m[0]*v[0]+m[1]*v[1]+m[2]*v[2],
+    m[3]*v[0]+m[4]*v[1]+m[5]*v[2],
+    m[6]*v[0]+m[7]*v[1]+m[8]*v[2],
+  ];
+}
+function basisToPoints(pts: [number,number][]): number[] {
+  const [[x1,y1],[x2,y2],[x3,y3],[x4,y4]] = pts;
+  const m = [x1,x2,x3, y1,y2,y3, 1,1,1];
+  const v = mv3(adj3(m), [x4, y4, 1]);
+  return mm3(m, [v[0],0,0, 0,v[1],0, 0,0,v[2]]);
+}
+function homography(W: number, H: number, to: [number,number][]): string {
+  const from: [number,number][] = [[0,0],[W,0],[W,H],[0,H]];
+  const T = basisToPoints(to);
+  const F = basisToPoints(from);
+  const M = mm3(T, adj3(F));
+  for (let i = 0; i < 9; i++) M[i] /= M[8];
+  // CSS matrix3d is column-major; map 2-D homography (skipping z row/col)
+  return `matrix3d(${M[0]},${M[3]},0,${M[6]}, ${M[1]},${M[4]},0,${M[7]}, 0,0,1,0, ${M[2]},${M[5]},0,1)`;
+}
+// ---------------------------------------------------------------------------
+
+// Natural pixel size of the iframe (must match Unity canvas aspect ≈ 4:3)
+const IFRAME_W = 800;
+const IFRAME_H = 600;
+
+// Mounts a full-canvas fixed div containing an iframe and applies a CSS
+// matrix3d each frame so the iframe exactly follows the perspective-warped
+// painting mesh, including when viewed from oblique angles.
+function UnityOnMesh({ src, meshRef }: { src: string; meshRef: React.RefObject<THREE.Mesh | null> }) {
+  const { camera, gl } = useThree();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const iframeWrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    // Outer div covers the full canvas so overflow:hidden clips perspective edges.
+    const container = document.createElement('div');
+    container.style.cssText =
+      'position:fixed;left:0;top:0;width:0;height:0;overflow:visible;pointer-events:none;z-index:10;';
+
+    // Inner div is the element we apply matrix3d to.
+    const wrap = document.createElement('div');
+    wrap.style.cssText =
+      `position:absolute;left:0;top:0;width:${IFRAME_W}px;height:${IFRAME_H}px;transform-origin:0 0;overflow:hidden;`;
+
+    const iframe = document.createElement('iframe');
+    iframe.src = `${src}/index.html`;
+    iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;';
+    iframe.setAttribute('allow', 'autoplay; fullscreen; vr');
+    iframe.setAttribute('scrolling', 'no');
+    iframe.title = 'Unity WebGL';
+
+    wrap.appendChild(iframe);
+    container.appendChild(wrap);
+    document.body.appendChild(container);
+
+    containerRef.current = container;
+    iframeWrapRef.current = wrap;
+
+    return () => {
+      document.body.removeChild(container);
+      containerRef.current = null;
+      iframeWrapRef.current = null;
+    };
+  }, [src]);
+
+  useFrame(() => {
+    const wrap = iframeWrapRef.current;
+    const mesh = meshRef.current;
+    if (!wrap || !mesh) return;
+
+    // Project all 4 corners of the plane (local space) → viewport px
+    const corners: [number, number, number][] = [
+      [-1,  0.75, 0], // TL
+      [ 1,  0.75, 0], // TR
+      [ 1, -0.75, 0], // BR
+      [-1, -0.75, 0], // BL
+    ];
+
+    const rect = gl.domElement.getBoundingClientRect();
+
+    const screen = corners.map(([x, y, z]) => {
+      const v = new THREE.Vector3(x, y, z);
+      mesh.localToWorld(v);
+      v.project(camera);
+      const sx = (v.x *  0.5 + 0.5) * rect.width  + rect.left;
+      const sy = (v.y * -0.5 + 0.5) * rect.height + rect.top;
+      return [sx, sy] as [number, number];
+    });
+
+    // Apply perspective-correct CSS transform
+    wrap.style.transform = homography(IFRAME_W, IFRAME_H, screen);
+  });
+
+  return null;
 }
 
 function ShaderMaterial({ src, emissiveIntensity }: { src: string, emissiveIntensity: any }) {
@@ -100,7 +220,6 @@ export default function Painting({ project, position }: PaintingProps) {
   const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
-  const [unityActive, setUnityActive] = useState(false);
   const meshRef = useRef<THREE.Mesh>(null);
 
   const isUnity = project.frontmatter.shaderType === 'unity';
@@ -114,31 +233,11 @@ export default function Painting({ project, position }: PaintingProps) {
     config: { mass: 1, tension: 280, friction: 60 },
   });
 
-  // Escape key closes the Unity overlay
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setUnityActive(false);
-    };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, []);
-
   const handleClick = (e: any) => {
     if (editMode) return;
     e.stopPropagation();
-    
-    // Only allow clicking if within 2.0 units (the "View" distance)
     if (e.distance > 2.0) return;
-
-    // Unity paintings open inline rather than navigating away
-    if (isUnity) {
-      setUnityActive(true);
-      return;
-    }
-
     setClicked(true);
-    
-    // Dispatch custom event for InteractionManager to handle the zoom
     const event = new CustomEvent('trigger-zoom', { detail: { slug: project.frontmatter.slug } });
     document.dispatchEvent(event);
   };
@@ -196,59 +295,9 @@ export default function Painting({ project, position }: PaintingProps) {
         )}
       </animated.mesh>
 
-      {/* Unity WebGL overlay — lives in DOM space via <Html transform> so an iframe can run here */}
-      {isUnity && (
-        <Html
-          transform
-          occlude
-          position={[0, 0, 0.03]}
-          scale={0.01}
-          // While inactive, pointer events are none so the mesh click handler still fires
-          style={{ pointerEvents: unityActive ? 'auto' : 'none' }}
-        >
-          <div style={{ width: 200, height: 150, overflow: 'hidden', borderRadius: 4, background: '#000', position: 'relative' }}>
-            {unityActive ? (
-              <>
-                <iframe
-                  src={`${project.frontmatter.shaderSrc}/index.html`}
-                  width={200}
-                  height={150}
-                  style={{ border: 'none', display: 'block' }}
-                  allow="autoplay; fullscreen; vr"
-                />
-                {/* Close button */}
-                <button
-                  onClick={() => setUnityActive(false)}
-                  style={{
-                    position: 'absolute', top: 6, right: 6,
-                    background: 'rgba(0,0,0,0.65)', color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.25)',
-                    borderRadius: '50%', width: 22, height: 22,
-                    cursor: 'pointer', fontSize: 13,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    lineHeight: 1,
-                  }}
-                >✕</button>
-              </>
-            ) : (
-              /* Passive overlay — pointer-events: none, only visible on hover */
-              <div style={{
-                width: '100%', height: '100%',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                background: hovered ? 'rgba(0,0,0,0.5)' : 'transparent',
-                color: '#fff', gap: 6,
-                transition: 'background 0.2s',
-              }}>
-                {hovered && (
-                  <>
-                    <div style={{ fontSize: 30 }}>▶</div>
-                    <div style={{ fontSize: 9, opacity: 0.75, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Click to Play</div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </Html>
+      {/* Unity: iframe tracks the mesh in screen-space each frame, auto-plays, pointer-events:none so clicks navigate as normal */}
+      {isUnity && project.frontmatter.shaderSrc && (
+        <UnityOnMesh src={project.frontmatter.shaderSrc} meshRef={meshRef} />
       )}
 
       {/* Label */}
